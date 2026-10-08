@@ -4,7 +4,7 @@ import pandas as pd
 
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -93,8 +93,8 @@ def train_model():
         ("preprocessor", preprocessor),
         (
             "classifier",
-            RandomForestClassifier(
-                n_estimators=200,
+            LogisticRegression(
+                max_iter=1000,
                 random_state=42
             )
         )
