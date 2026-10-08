@@ -4,7 +4,7 @@ import pandas as pd
 
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -93,9 +93,10 @@ def train_model():
         ("preprocessor", preprocessor),
         (
             "classifier",
-            LogisticRegression(
-                max_iter=1000,
-                random_state=42
+            ExtraTreesClassifier(
+                n_estimators=300,
+                random_state=42,
+                class_weight="balanced"
             )
         )
     ])
