@@ -1,1 +1,8 @@
+__pycache__/
+*.pyc
+.git/
+.github/
+test_*.py
+employee_promotion_raw.xlsx
+release_candidate/
 
