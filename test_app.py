@@ -10,9 +10,8 @@ class TestEmployeePromotionAPI(unittest.TestCase):
         cls.model = joblib.load("employee_promotion_model.pkl")
 
     def test_model_can_be_loaded(self):
-        # CONTROLLED FAILURE
-        # This is intentionally changed to fail the CI/CD pipeline.
-        self.assertIsNone(self.model)
+        # Restored correct test
+        self.assertIsNotNone(self.model)
 
     def test_prediction_can_be_generated(self):
 
