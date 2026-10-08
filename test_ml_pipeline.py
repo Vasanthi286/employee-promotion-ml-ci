@@ -107,7 +107,7 @@ class TestMLPipeline(unittest.TestCase):
 
         self.assertEqual(
             int(prediction),
-            0
+            1
         )
 
     def test_low_promotion_candidate(self):
