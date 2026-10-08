@@ -13,6 +13,13 @@ def home():
     return "Employee Promotion Prediction API is running"
 
 
+@app.route("/health")
+def health():
+    return jsonify({
+        "status": "healthy"
+    })
+
+
 @app.route("/predict", methods=["POST"])
 def predict():
 
@@ -23,6 +30,7 @@ def predict():
     prediction = model.predict(input_data)[0]
 
     return jsonify({
+        "prediction": int(prediction),
         "promotion_prediction": int(prediction)
     })
 
