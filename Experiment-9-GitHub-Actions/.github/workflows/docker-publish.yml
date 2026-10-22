@@ -3,7 +3,8 @@ name: Employee Promotion Docker Publish
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -20,19 +21,26 @@ jobs:
 
       - name: Check project files
         run: |
-          find . -name Dockerfile -o -name employee_promotion_model.pkl -o -name metrics.json
+          echo "Checking project files..."
+          ls -la Experiment-9-GitHub-Actions
+          test -f Experiment-9-GitHub-Actions/Dockerfile
+          test -f Experiment-9-GitHub-Actions/app.py
+          test -f Experiment-9-GitHub-Actions/requirements.txt
+          test -f Experiment-9-GitHub-Actions/employee_promotion_model.pkl
+          test -f Experiment-9-GitHub-Actions/metrics.json
 
       - name: Build Docker image
         run: |
           docker build \
-            -f recovered-project/Dockerfile \
             -t employee-promotion-ml:ci \
-            recovered-project
+            Experiment-9-GitHub-Actions
 
       - name: Run container
         run: |
-          docker run -d --name employee-promotion-test \
-            -p 5000:5000 employee-promotion-ml:ci
+          docker run -d \
+            --name employee-promotion-test \
+            -p 5000:5000 \
+            employee-promotion-ml:ci
 
       - name: Test homepage
         run: |
@@ -43,10 +51,11 @@ jobs:
             fi
             sleep 2
           done
+
           docker logs employee-promotion-test
           exit 1
 
-      - name: Login to GHCR
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -54,13 +63,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set image name
-        run: echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+        run: |
+          echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
-      - name: Publish image
+      - name: Publish Docker image
         run: |
           docker tag employee-promotion-ml:ci "$IMAGE_NAME:exp9"
           docker push "$IMAGE_NAME:exp9"
 
       - name: Cleanup
         if: always()
-        run: docker rm -f employee-promotion-test || true
+        run: |
+          docker rm -f employee-promotion-test || true
