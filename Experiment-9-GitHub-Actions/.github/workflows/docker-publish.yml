@@ -3,8 +3,7 @@ name: Employee Promotion Docker Publish
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -19,15 +18,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify project files
+      - name: Check project files
         run: |
-          ls -la recovered-project
-          test -f recovered-project/Dockerfile
-          test -f recovered-project/app.py
-          test -f recovered-project/requirements.txt
-          test -f recovered-project/employee_promotion_model.pkl
-          test -f recovered-project/metrics.json
-          echo "All required files found."
+          find . -name Dockerfile -o -name employee_promotion_model.pkl -o -name metrics.json
 
       - name: Build Docker image
         run: |
@@ -38,25 +31,22 @@ jobs:
 
       - name: Run container
         run: |
-          docker run -d \
-            --name employee-promotion-test \
-            -p 5000:5000 \
-            employee-promotion-ml:ci
+          docker run -d --name employee-promotion-test \
+            -p 5000:5000 employee-promotion-ml:ci
 
       - name: Test homepage
         run: |
           for i in {1..15}; do
             if curl --fail http://localhost:5000/; then
-              echo "Homepage test passed."
+              echo "Homepage test passed"
               exit 0
             fi
             sleep 2
           done
-
           docker logs employee-promotion-test
           exit 1
 
-      - name: Log in to GHCR
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -64,19 +54,13 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set image name
-        run: |
-          echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+        run: echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
-      - name: Tag Docker image
+      - name: Publish image
         run: |
           docker tag employee-promotion-ml:ci "$IMAGE_NAME:exp9"
-          docker tag employee-promotion-ml:ci "$IMAGE_NAME:latest"
-
-      - name: Push image to GHCR
-        run: |
           docker push "$IMAGE_NAME:exp9"
-          docker push "$IMAGE_NAME:latest"
 
-      - name: Clean up test container
+      - name: Cleanup
         if: always()
         run: docker rm -f employee-promotion-test || true
