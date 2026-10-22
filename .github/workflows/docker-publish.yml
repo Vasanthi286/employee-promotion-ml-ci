@@ -1,1 +1,50 @@
 
+name: Employee Promotion Docker Publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: docker build -t employee-promotion-ml:ci .
+
+      - name: Test Docker image
+        run: |
+          docker run -d --name promotion-test -p 5001:5000 employee-promotion-ml:ci
+          for i in {1..15}; do
+            if curl --fail http://localhost:5001/; then
+              echo "API test passed"
+              docker rm -f promotion-test
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs promotion-test
+          docker rm -f promotion-test
+          exit 1
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Tag image
+        run: docker tag employee-promotion-ml:ci ghcr.io/${{ github.repository_owner }}/employee-promotion-ml:v2
+
+      - name: Publish image to GHCR
+        run: docker push ghcr.io/${{ github.repository_owner }}/employee-promotion-ml:v2
+
