@@ -19,28 +19,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check project files
+      - name: Verify required files
         run: |
-          echo "Checking project files..."
-          ls -la Experiment-9-GitHub-Actions
-          test -f Experiment-9-GitHub-Actions/Dockerfile
-          test -f Experiment-9-GitHub-Actions/app.py
-          test -f Experiment-9-GitHub-Actions/requirements.txt
+          test -f Dockerfile
+          test -f app.py
+          test -f requirements.txt
           test -f Experiment-9-GitHub-Actions/employee_promotion_model.pkl
           test -f Experiment-9-GitHub-Actions/metrics.json
 
-      - name: Build Docker image
+      - name: Prepare Docker build files
         run: |
-          docker build \
-            -t employee-promotion-ml:ci \
-            Experiment-9-GitHub-Actions
+          cp Experiment-9-GitHub-Actions/employee_promotion_model.pkl .
+          cp Experiment-9-GitHub-Actions/metrics.json .
+
+      - name: Build Docker image
+        run: docker build -t employee-promotion-ml:ci .
 
       - name: Run container
         run: |
-          docker run -d \
-            --name employee-promotion-test \
-            -p 5000:5000 \
-            employee-promotion-ml:ci
+          docker run -d --name employee-promotion-test \
+            -p 5000:5000 employee-promotion-ml:ci
 
       - name: Test homepage
         run: |
@@ -51,27 +49,22 @@ jobs:
             fi
             sleep 2
           done
-
           docker logs employee-promotion-test
           exit 1
 
-      - name: Login to GitHub Container Registry
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set image name
-        run: |
-          echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-
       - name: Publish Docker image
         run: |
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY,,}"
           docker tag employee-promotion-ml:ci "$IMAGE_NAME:exp9"
           docker push "$IMAGE_NAME:exp9"
 
       - name: Cleanup
         if: always()
-        run: |
-          docker rm -f employee-promotion-test || true
+        run: docker rm -f employee-promotion-test || true
