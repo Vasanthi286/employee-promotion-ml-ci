@@ -3,7 +3,8 @@ name: Employee Promotion Docker Publish
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -18,33 +19,55 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Verify project files
+        run: |
+          test -f Dockerfile
+          test -f app.py
+          test -f requirements.txt
+          test -f Experiment-9-GitHub-Actions/employee_promotion_model.pkl
+          test -f Experiment-9-GitHub-Actions/metrics.json
+
+      - name: Prepare Docker build files
+        run: |
+          cp Experiment-9-GitHub-Actions/employee_promotion_model.pkl .
+          cp Experiment-9-GitHub-Actions/metrics.json .
 
       - name: Build Docker image
         run: docker build -t employee-promotion-ml:ci .
 
-      - name: Test Docker image
+      - name: Run container
         run: |
-          docker run -d --name promotion-test -p 5001:5000 employee-promotion-ml:ci
+          docker run -d \
+            --name employee-promotion-test \
+            -p 5000:5000 \
+            employee-promotion-ml:ci
+
+      - name: Test homepage
+        run: |
           for i in {1..15}; do
-            if curl --fail http://localhost:5001/; then
-              echo "API test passed"
-              docker rm -f promotion-test
+            if curl --fail http://localhost:5000/; then
+              echo "Homepage test passed"
               exit 0
             fi
             sleep 2
           done
-          docker logs promotion-test
-          docker rm -f promotion-test
+
+          docker logs employee-promotion-test
           exit 1
 
-      - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Tag image
-        run: docker tag employee-promotion-ml:ci ghcr.io/${{ github.repository_owner }}/employee-promotion-ml:v2
+      - name: Publish Docker image
+        run: |
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY,,}"
+          docker tag employee-promotion-ml:ci "$IMAGE_NAME:v2"
+          docker push "$IMAGE_NAME:v2"
 
-      - name: Publish image to GHCR
-        run: docker push ghcr.io/${{ github.repository_owner }}/employee-promotion-ml:v2
-
+      - name: Cleanup
+        if: always()
+        run: docker rm -f employee-promotion-test || true
