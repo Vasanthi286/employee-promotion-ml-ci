@@ -9,9 +9,9 @@ app = Flask(__name__)
 model = joblib.load("employee_promotion_model.pkl")
 
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
-    return "Employee Promotion Prediction API is running"
+    return "Employee Promotion Prediction API is running", 200
 
 
 @app.route("/health", methods=["GET"])
@@ -23,9 +23,9 @@ def health():
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    data = request.get_json()
+    data = request.get_json(silent=True)
 
-    if not data:
+    if not isinstance(data, dict) or not data:
         return jsonify({
             "error": "Please provide employee details in JSON format"
         }), 400
@@ -41,9 +41,10 @@ def predict():
             "promotion_prediction": int(prediction)
         }), 200
 
-    except Exception as e:
+    except Exception as error:
+        app.logger.exception("Prediction failed")
         return jsonify({
-            "error": str(e)
+            "error": str(error)
         }), 400
 
 
