@@ -26,6 +26,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Prepare model files
+        run: |
+          cp Experiment-9-GitHub-Actions/employee_promotion_model.pkl .
+          cp Experiment-9-GitHub-Actions/metrics.json .
+
       - name: Run ML pipeline tests
         run: |
           python test_ml_pipeline.py
@@ -87,10 +92,12 @@ jobs:
           echo "Prediction response: $response"
           echo "$response" | grep -q '"promotion_prediction"'
 
-      - name: Show Docker container logs
+      - name: Show container logs
         if: always()
-        run: docker logs employee-promotion-test
+        run: |
+          docker logs employee-promotion-test || true
 
-      - name: Stop and remove Docker container
+      - name: Stop and remove container
         if: always()
-        run: docker rm -f employee-promotion-test
+        run: |
+          docker rm -f employee-promotion-test || true
