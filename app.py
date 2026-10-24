@@ -1,10 +1,11 @@
+
 from flask import Flask, request, jsonify
 import joblib
 import pandas as pd
 
 app = Flask(__name__)
 
-# Load trained employee promotion model
+# Load the trained Employee Promotion model
 model = joblib.load("employee_promotion_model.pkl")
 
 
@@ -13,26 +14,37 @@ def home():
     return "Employee Promotion Prediction API is running"
 
 
-@app.route("/health")
+@app.route("/health", methods=["GET"])
 def health():
     return jsonify({
         "status": "healthy"
-    })
+    }), 200
 
 
 @app.route("/predict", methods=["POST"])
 def predict():
-
     data = request.get_json()
 
-    input_data = pd.DataFrame([data])
+    if not data:
+        return jsonify({
+            "error": "Please provide employee details in JSON format"
+        }), 400
 
-    prediction = model.predict(input_data)[0]
+    try:
+        # Convert employee details into a DataFrame
+        input_data = pd.DataFrame([data])
 
-    return jsonify({
-        "prediction": int(prediction),
-        "promotion_prediction": int(prediction)
-    })
+        # Predict employee promotion
+        prediction = model.predict(input_data)[0]
+
+        return jsonify({
+            "promotion_prediction": int(prediction)
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "error": str(e)
+        }), 400
 
 
 if __name__ == "__main__":
