@@ -42,18 +42,51 @@ jobs:
             -p 5000:5000 \
             employee-promotion-ml:ci
 
-      - name: Test homepage
+      - name: Test application endpoints
         run: |
           for i in {1..15}; do
-            if curl --fail http://localhost:5000/; then
-              echo "Homepage test passed"
-              exit 0
+            if curl --fail --silent http://localhost:5000/; then
+              break
             fi
             sleep 2
           done
 
-          docker logs employee-promotion-test
-          exit 1
+          curl --fail --silent --show-error \
+            http://localhost:5000/
+
+          curl --fail --silent --show-error \
+            http://localhost:5000/health
+
+      - name: Test prediction endpoint
+        run: |
+          response=$(curl --fail --silent --show-error \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d '{
+              "Age": 30,
+              "Department": "R&D",
+              "Education_Level": "Bachelor'\''s",
+              "Years_at_Company": 5,
+              "Years_in_Current_Role": 2,
+              "Job_Level": "Mid",
+              "Performance_Score": 4,
+              "Training_Hours": 20,
+              "Projects_Completed": 5,
+              "Certifications": 2,
+              "Salary": 60000,
+              "Job_Satisfaction": 4,
+              "Work_Life_Balance": 4,
+              "Manager_Rating": 4,
+              "Overtime": "No",
+              "Previous_Promotions": 1,
+              "Absence_Days": 5,
+              "Remote_Work": "Yes",
+              "Monthly_Hours": 160
+            }' \
+            http://localhost:5000/predict)
+
+          echo "Prediction response: $response"
+          echo "$response" | grep -q '"promotion_prediction"'
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -67,6 +100,10 @@ jobs:
           IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY,,}"
           docker tag employee-promotion-ml:ci "$IMAGE_NAME:v2"
           docker push "$IMAGE_NAME:v2"
+
+      - name: Show container logs
+        if: always()
+        run: docker logs employee-promotion-test || true
 
       - name: Cleanup
         if: always()
