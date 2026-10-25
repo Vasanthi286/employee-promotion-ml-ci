@@ -2,25 +2,46 @@
 import logging
 import time
 import uuid
+from pathlib import Path
 
-from flask import Flask, request, jsonify, g
 import joblib
 import pandas as pd
+from flask import Flask, request, jsonify, g
 
 app = Flask(__name__)
 
-# Configure application logging
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s"
 )
-
 logger = logging.getLogger(__name__)
 
-# Load the existing trained Employee Promotion model
-model = joblib.load("employee_promotion_model.pkl")
+# Locate the trained Employee Promotion model
+BASE_DIR = Path(__file__).resolve().parent
+
+MODEL_PATHS = [
+    BASE_DIR / "employee_promotion_model.pkl",
+    BASE_DIR.parent / "Experiment-9-GitHub-Actions"
+    / "employee_promotion_model.pkl",
+]
+
+MODEL_PATH = next(
+    (path for path in MODEL_PATHS if path.is_file()),
+    None
+)
+
+if MODEL_PATH is None:
+    raise FileNotFoundError(
+        "employee_promotion_model.pkl was not found. "
+        "Place it in this folder or in Experiment-9-GitHub-Actions."
+    )
+
+model = joblib.load(MODEL_PATH)
+logger.info("Employee Promotion model loaded from %s", MODEL_PATH)
 
 
+# Log request start and generate a request ID
 @app.before_request
 def log_request_start():
     g.request_id = str(uuid.uuid4())
@@ -34,23 +55,24 @@ def log_request_start():
     )
 
 
+# Log response status and request duration
 @app.after_request
 def log_request_end(response):
     elapsed = time.time() - getattr(g, "start_time", time.time())
+    request_id = getattr(g, "request_id", "unknown")
 
     logger.info(
         "Request completed | id=%s status=%s duration=%.3fs",
-        getattr(g, "request_id", "unknown"),
+        request_id,
         response.status_code,
         elapsed
     )
 
-    response.headers["X-Request-ID"] = getattr(
-        g, "request_id", "unknown"
-    )
+    response.headers["X-Request-ID"] = request_id
     return response
 
 
+# Home endpoint
 @app.route("/", methods=["GET"])
 def home():
     logger.info("Homepage accessed")
@@ -59,22 +81,26 @@ def home():
     }), 200
 
 
+# Health-check endpoint
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "healthy"}), 200
 
 
+# Employee promotion prediction endpoint
 @app.route("/predict", methods=["POST"])
 def predict():
     data = request.get_json(silent=True)
+    request_id = getattr(g, "request_id", "unknown")
 
     if not isinstance(data, dict) or not data:
         logger.warning(
             "Invalid prediction request | id=%s",
-            getattr(g, "request_id", "unknown")
+            request_id
         )
         return jsonify({
-            "error": "A non-empty JSON object is required"
+            "error": "A non-empty JSON object is required",
+            "request_id": request_id
         }), 400
 
     try:
@@ -83,24 +109,26 @@ def predict():
 
         logger.info(
             "Prediction successful | id=%s",
-            getattr(g, "request_id", "unknown")
+            request_id
         )
 
         return jsonify({
-            "promotion_prediction": int(prediction)
+            "promotion_prediction": int(prediction),
+            "request_id": request_id
         }), 200
 
     except Exception:
         logger.exception(
             "Prediction failed | id=%s",
-            getattr(g, "request_id", "unknown")
+            request_id
         )
         return jsonify({
             "error": "Prediction failed. Check application logs.",
-            "request_id": getattr(g, "request_id", "unknown")
+            "request_id": request_id
         }), 400
 
 
+# Handle unknown routes
 @app.errorhandler(404)
 def not_found(error):
     logger.warning(
@@ -111,6 +139,7 @@ def not_found(error):
     return jsonify({"error": "Route not found"}), 404
 
 
+# Handle internal server errors
 @app.errorhandler(500)
 def internal_error(error):
     logger.exception("Internal server error")
@@ -118,4 +147,5 @@ def internal_error(error):
 
 
 if __name__ == "__main__":
+    logger.info("Starting Employee Promotion Prediction API")
     app.run(host="0.0.0.0", port=5000)
