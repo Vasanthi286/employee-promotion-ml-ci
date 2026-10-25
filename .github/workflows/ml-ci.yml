@@ -1,15 +1,17 @@
 
-name: Employee Promotion ML CI-CD
+name: Practical 11 - Logging CI
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'Experiment-11-Logging-and-Error-Tracking/**'
+      - '.github/workflows/logging-ci.yml'
   pull_request:
     branches: [main]
-  workflow_dispatch:
 
 jobs:
-  test-and-validate:
+  test:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,85 +21,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r Experiment-11-Logging-and-Error-Tracking/requirements.txt
 
-      - name: Prepare model files
-        run: |
-          cp Experiment-9-GitHub-Actions/employee_promotion_model.pkl .
-          cp Experiment-9-GitHub-Actions/metrics.json .
-
-      - name: Run ML pipeline tests
-        run: |
-          python test_ml_pipeline.py
-
-      - name: Build Docker image
-        run: |
-          docker build -t employee-promotion-ml:ci .
-
-      - name: Start Docker container
-        run: |
-          docker run -d --name employee-promotion-test \
-            -p 5000:5000 \
-            employee-promotion-ml:ci
-
-      - name: Wait for application to become ready
-        run: |
-          for i in {1..30}; do
-            if curl --fail --silent http://localhost:5000/ > /dev/null; then
-              echo "Application is ready"
-              break
-            fi
-            sleep 2
-          done
-          curl --fail http://localhost:5000/
-
-      - name: Test health endpoint
-        run: |
-          curl --fail --silent --show-error \
-            http://localhost:5000/health
-
-      - name: Test prediction endpoint
-        run: |
-          response=$(curl --fail --silent --show-error \
-            -X POST \
-            -H "Content-Type: application/json" \
-            -d '{
-              "Age": 30,
-              "Department": "R&D",
-              "Education_Level": "Bachelor'\''s",
-              "Years_at_Company": 5,
-              "Years_in_Current_Role": 2,
-              "Job_Level": "Mid",
-              "Performance_Score": 4,
-              "Training_Hours": 20,
-              "Projects_Completed": 5,
-              "Certifications": 2,
-              "Salary": 60000,
-              "Job_Satisfaction": 4,
-              "Work_Life_Balance": 4,
-              "Manager_Rating": 4,
-              "Overtime": "No",
-              "Previous_Promotions": 1,
-              "Absence_Days": 5,
-              "Remote_Work": "Yes",
-              "Monthly_Hours": 160
-            }' \
-            http://localhost:5000/predict)
-
-          echo "Prediction response: $response"
-          echo "$response" | grep -q '"promotion_prediction"'
-
-      - name: Show container logs
-        if: always()
-        run: |
-          docker logs employee-promotion-test || true
-
-      - name: Stop and remove container
-        if: always()
-        run: |
-          docker rm -f employee-promotion-test || true
+      - name: Run logging API tests
+        working-directory: Experiment-11-Logging-and-Error-Tracking
+        run: python -m unittest -v test_app.py
