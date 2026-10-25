@@ -116,10 +116,17 @@ jobs:
             throw "Failed to pull published image"
           }
 
-          minikube image load $image
+          docker save -o employee-promotion-image.tar $image
           if ($LASTEXITCODE -ne 0) {
-            throw "Failed to load image into Minikube"
+            throw "Failed to export Docker image"
           }
+
+          minikube image load employee-promotion-image.tar
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to load image archive into Minikube"
+          }
+
+          Remove-Item employee-promotion-image.tar -ErrorAction SilentlyContinue
 
       - name: Update Kubernetes deployment
         shell: powershell
