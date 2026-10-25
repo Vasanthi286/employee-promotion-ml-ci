@@ -1,0 +1,45 @@
+
+name: Experiment 14 - Employee Promotion CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Experiment-14-Automated-Kubernetes-Deployment/**"
+      - ".github/workflows/practical14-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/employee-promotion-ml-ci
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t employee-promotion:test \
+            -f Dockerfile .
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish image
+        run: |
+          IMAGE_NAME_LOWER=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
+          docker tag employee-promotion:test "$REGISTRY/$IMAGE_NAME_LOWER:latest"
+          docker push "$REGISTRY/$IMAGE_NAME_LOWER:latest"
