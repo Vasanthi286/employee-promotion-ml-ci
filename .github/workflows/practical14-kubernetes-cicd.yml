@@ -11,6 +11,7 @@ on:
       - "requirements.txt"
       - "test_app.py"
       - "test_ml_pipeline.py"
+      - "train_model.py"
       - ".github/workflows/practical14-kubernetes-cicd.yml"
   workflow_dispatch:
 
@@ -41,16 +42,27 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
+      - name: Generate model and metrics
+        run: |
+          python train_model.py
+
+      - name: Verify generated files
+        run: |
+          test -f employee_promotion_model.pkl
+          test -f metrics.json
+
       - name: Run root-level tests
         run: |
           python -m pytest -q --import-mode=importlib test_app.py test_ml_pipeline.py
 
       - name: Build Docker image
-        run: docker build -t employee-promotion:test .
+        run: |
+          docker build -t employee-promotion:test .
 
-      - name: Start and test container
+      - name: Test Docker container
         run: |
           docker run -d --name employee-promotion-test -p 5000:5000 employee-promotion:test
+
           for i in $(seq 1 30); do
             if curl --fail http://localhost:5000/; then
               echo "Application check passed"
@@ -58,6 +70,7 @@ jobs:
             fi
             sleep 2
           done
+
           docker logs employee-promotion-test
           exit 1
 
@@ -97,38 +110,41 @@ jobs:
         shell: powershell
         run: |
           $image = "ghcr.io/vasanthi286/employee-promotion-ml-ci:${{ github.sha }}"
+
           docker pull $image
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to pull published image"
           }
+
           minikube image load $image
           if ($LASTEXITCODE -ne 0) {
             throw "Failed to load image into Minikube"
           }
 
-      - name: Update deployment image
+      - name: Update Kubernetes deployment
         shell: powershell
         run: |
           $image = "ghcr.io/vasanthi286/employee-promotion-ml-ci:${{ github.sha }}"
+
           kubectl set image deployment/employee-promotion employee-promotion=$image
           if ($LASTEXITCODE -ne 0) {
-            throw "Failed to update deployment"
+            throw "Failed to update deployment image"
           }
 
-      - name: Wait for rollout
+      - name: Verify rollout
         id: rollout
         continue-on-error: true
         shell: powershell
         run: |
           kubectl rollout status deployment/employee-promotion --timeout=180s
 
-      - name: Roll back on failure
+      - name: Roll back if rollout fails
         if: steps.rollout.outcome == 'failure'
         shell: powershell
         run: |
           kubectl rollout undo deployment/employee-promotion
           kubectl rollout status deployment/employee-promotion --timeout=180s
-          throw "Deployment failed; rollback attempted"
+          throw "Deployment failed; rollback was attempted"
 
       - name: Verify deployment
         if: steps.rollout.outcome == 'success'
