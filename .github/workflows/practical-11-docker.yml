@@ -1,1 +1,56 @@
 
+name: Practical 11 - Logging Docker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Experiment-11-Logging-and-Error-Tracking/**'
+      - '.github/workflows/practical-11-docker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r Experiment-11-Logging-and-Error-Tracking/requirements.txt
+
+      - name: Copy model for tests
+        run: |
+          cp Experiment-9-GitHub-Actions/employee_promotion_model.pkl \
+             Experiment-11-Logging-and-Error-Tracking/
+
+      - name: Verify practical files
+        run: |
+          test -f Experiment-11-Logging-and-Error-Tracking/app.py
+          test -f Experiment-11-Logging-and-Error-Tracking/test_app.py
+          test -f Experiment-11-Logging-and-Error-Tracking/employee_promotion_model.pkl
+
+      - name: Run Practical 11 tests
+        working-directory: Experiment-11-Logging-and-Error-Tracking
+        env:
+          PYTHONPATH: .
+        run: python -m unittest -v test_app
+
+      - name: Build Practical 11 Docker image
+        run: |
+          docker build \
+            -f Experiment-11-Logging-and-Error-Tracking/Dockerfile \
+            -t employee-promotion-practical11:ci .
+
