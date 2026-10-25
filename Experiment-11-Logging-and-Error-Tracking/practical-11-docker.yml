@@ -14,7 +14,7 @@ permissions:
   packages: write
 
 jobs:
-  build-test:
+  build-test-publish:
     runs-on: ubuntu-latest
 
     steps:
@@ -43,5 +43,18 @@ jobs:
         run: |
           docker build \
             -f Experiment-11-Logging-and-Error-Tracking/Dockerfile \
-            -t employee-promotion-practical11:ci .
+            -t employee-promotion-practical11:ci \
+            Experiment-11-Logging-and-Error-Tracking
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Practical 11 image
+        run: |
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY,,}"
+          docker tag employee-promotion-practical11:ci "$IMAGE_NAME:practical11"
+          docker push "$IMAGE_NAME:practical11"
