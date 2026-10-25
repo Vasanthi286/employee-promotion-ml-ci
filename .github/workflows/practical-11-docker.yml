@@ -14,7 +14,7 @@ permissions:
   packages: write
 
 jobs:
-  build-test:
+  build-test-publish:
     runs-on: ubuntu-latest
 
     steps:
@@ -41,6 +41,7 @@ jobs:
           test -f Experiment-11-Logging-and-Error-Tracking/app.py
           test -f Experiment-11-Logging-and-Error-Tracking/test_app.py
           test -f Experiment-11-Logging-and-Error-Tracking/employee_promotion_model.pkl
+          test -f Experiment-11-Logging-and-Error-Tracking/Dockerfile
 
       - name: Run Practical 11 tests
         working-directory: Experiment-11-Logging-and-Error-Tracking
@@ -52,5 +53,48 @@ jobs:
         run: |
           docker build \
             -f Experiment-11-Logging-and-Error-Tracking/Dockerfile \
-            -t employee-promotion-practical11:ci .
+            -t employee-promotion-practical11:ci \
+            Experiment-11-Logging-and-Error-Tracking
 
+      - name: Run Practical 11 container
+        run: |
+          docker run -d \
+            --name practical11-test \
+            -p 5000:5000 \
+            employee-promotion-practical11:ci
+
+      - name: Test Practical 11 API
+        run: |
+          for i in {1..20}; do
+            if curl --fail --silent http://localhost:5000/; then
+              break
+            fi
+            sleep 2
+          done
+
+          curl --fail --silent --show-error \
+            http://localhost:5000/
+
+          curl --fail --silent --show-error \
+            http://localhost:5000/health
+
+      - name: Show container logs
+        if: always()
+        run: docker logs practical11-test || true
+
+      - name: Cleanup container
+        if: always()
+        run: docker rm -f practical11-test || true
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Practical 11 Docker image
+        run: |
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY,,}-practical11"
+          docker tag employee-promotion-practical11:ci "$IMAGE_NAME:v1"
+          docker push "$IMAGE_NAME:v1"
