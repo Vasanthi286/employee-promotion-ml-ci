@@ -138,6 +138,7 @@ jobs:
             throw "Failed to update deployment image"
           }
 
+
       - name: Verify rollout
         id: rollout
         continue-on-error: true
@@ -150,8 +151,16 @@ jobs:
         shell: powershell
         run: |
           kubectl rollout undo deployment/employee-promotion
+          if ($LASTEXITCODE -ne 0) {
+            throw "Rollback command failed"
+          }
+
           kubectl rollout status deployment/employee-promotion --timeout=180s
-          throw "Deployment failed; rollback was attempted"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Rollback rollout did not complete successfully"
+          }
+
+          throw "Deployment failed; rollback completed"
 
       - name: Verify deployment
         if: steps.rollout.outcome == 'success'
